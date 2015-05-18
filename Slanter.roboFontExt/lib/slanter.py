@@ -9,6 +9,8 @@ import mojo.drawingTools as drawingTools
 from mojo.tools import IntersectGlyphWithLine
 
 from lib.UI.stepper import SliderEditIntStepper
+from lib.fontObjects.doodleComponent import DecomposePointPen
+
 
 from fontTools.misc.transform import Transform
 from math import radians
@@ -52,8 +54,20 @@ class SlanterController(BaseWindowController):
         rotation = radians(-rotation)
         
         dest = glyph.copy()
+        
+        if not addComponents:
+            for component in dest.components:
+                pointPen = DecomposePointPen(glyph.getParent(), dest.getPointPen(), component.transformation)
+                component.drawPoints(pointPen)
+                dest.removeComponent(component)
+        
+        for contour in list(dest):
+            if contour.open:
+                dest.removeContour(contour)
+        
         if skew == 0 and rotation == 0:
             return dest
+            
         for contour in dest:
             for bPoint in contour.bPoints:
                 bcpIn = bPoint.bcpIn
@@ -68,7 +82,7 @@ class SlanterController(BaseWindowController):
                     bPoint.anchorLabels = ["extremePoint"]
         
         cx, cy = 0, 0
-        box = dest.box
+        box = glyph.box
         if box:
             cx = box[0] + (box[2] - box[0]) * .5
             cy = box[1] + (box[3] - box[1]) * .5
@@ -78,7 +92,6 @@ class SlanterController(BaseWindowController):
         t = t.translate(cx, cy).rotate(rotation).translate(-cx, -cy)
         
         dest.transform(t)
-        
         dest.extremePoints(round=0)
         for contour in dest:
             for point in contour.points:
@@ -88,7 +101,10 @@ class SlanterController(BaseWindowController):
                 else:
                     point.selected = False
         dest.removeSelection()
-        dest.round() 
+        dest.round()
+        
+        
+        
         return dest
     
     def getSelectedPoints(self, glyph):
@@ -163,8 +179,7 @@ class SlanterController(BaseWindowController):
             outGlyph = self.getGlyph(glyph, *attrValues)
         selectedPoints = self.getSelectedPoints(outGlyph)
         self.w.preview.setGlyph(outGlyph)
-        if selectedPoints:
-            self.w.preview.setSelection(selectedPoints)
+        self.w.preview.setSelection(selectedPoints)
         self.updateSpaceCenters()
     
     def currentGlyphChanged(self, notification):
