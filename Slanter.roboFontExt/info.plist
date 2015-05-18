@@ -29,9 +29,10 @@
 	<real>1425243187.389662</real>
 	<key>version</key>
 	<string>1.0</string>
-	<key>repository</key>
-	<string>typemytype/slanterRoboFontExtension</string>
-	<key>extensionPath</key>
-	<string>Slanter.roboFontExt</string>
+	<key>com.robofontmechanic.Mechanic</key>
+	<dict>
+		<key>repository</key>
+		<string>typemytype/slanterRoboFontExtension</string>
+	</dict>
 </dict>
 </plist>
