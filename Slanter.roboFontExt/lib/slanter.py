@@ -235,9 +235,15 @@ class SlanterController(BaseWindowController):
         self._holdGlyphUpdates = True
         
         font = CurrentFont()
+        cGlyph = CurrentGlyph()
         attrValues = self.getAttributes()
         
-        for name in font.selection:
+        if font.selection:
+            gNames = font.selection
+        else:
+            gNames = [cGlyph.name]
+
+        for name in gNames:
             glyph = font[name]
             glyph.prepareUndo("Shifter")
             
