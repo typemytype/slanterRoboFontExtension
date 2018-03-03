@@ -33,6 +33,8 @@
 	<dict>
 		<key>repository</key>
 		<string>typemytype/slanterRoboFontExtension</string>
+		<key>summary</key>
+		<string>Slant glyphs without losing extreme points.</string>
 	</dict>
 </dict>
 </plist>
