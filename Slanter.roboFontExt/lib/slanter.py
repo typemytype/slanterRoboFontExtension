@@ -3,14 +3,13 @@ from defconAppKit.windows.baseWindow import BaseWindowController
 
 from mojo.glyphPreview import GlyphPreview
 from mojo.events import addObserver, removeObserver
-from mojo.roboFont import CurrentGlyph, CurrentFont, RGlyph, OpenWindow
+from mojo.roboFont import CurrentGlyph, CurrentFont, RGlyph, OpenWindow, version
 from mojo.UI import AllSpaceCenters, CurrentGlyphWindow
 import mojo.drawingTools as drawingTools
 from mojo.tools import IntersectGlyphWithLine
 
 from lib.UI.stepper import SliderEditIntStepper
 from lib.fontObjects.doodleComponent import DecomposePointPen
-
 
 from fontTools.misc.transform import Transform
 from math import radians
@@ -91,7 +90,13 @@ class SlanterController(BaseWindowController):
         t = t.skew(skew)
         t = t.translate(cx, cy).rotate(rotation).translate(-cx, -cy)
 
-        dest.transform(t)
+        # RF3
+        if version >= "3.0.0":
+            dest.transformBy(tuple(t))
+        # RF1
+        else:
+            dest.transform(t)
+
         dest.extremePoints(round=0)
         for contour in dest:
             for point in contour.points:
@@ -102,8 +107,6 @@ class SlanterController(BaseWindowController):
                     point.selected = False
         dest.removeSelection()
         dest.round()
-
-
 
         return dest
 
@@ -149,7 +152,6 @@ class SlanterController(BaseWindowController):
             setattr(self.w, camelCase(attr), obj)
             y += 30
 
-
         self.w.apply = vanilla.Button((-150+right, y, -10, 22), "Apply Glyph", callback=self.applyCallback)
         self.w.newFont = vanilla.Button((-150+right-10-150, y, -150+right-10, 22), "New Font", callback=self.generateFontCallback)
 
@@ -160,7 +162,6 @@ class SlanterController(BaseWindowController):
         self.w.bind("close", self.windowClose)
         self.parametersChanged()
         self.w.open()
-
 
     def getAttributes(self):
         values = []
@@ -229,7 +230,6 @@ class SlanterController(BaseWindowController):
 
         drawingTools.fill(0)
         drawingTools.drawGlyph(outGlyph)
-
 
     def applyCallback(self, sender):
         self._holdGlyphUpdates = True
