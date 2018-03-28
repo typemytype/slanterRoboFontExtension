@@ -91,7 +91,7 @@ class SlanterController(BaseWindowController):
         t = t.translate(cx, cy).rotate(rotation).translate(-cx, -cy)
 
         # RF3
-        if version >= "3.0.0":
+        if version >= "3.0":
             dest.transformBy(tuple(t))
         # RF1
         else:
