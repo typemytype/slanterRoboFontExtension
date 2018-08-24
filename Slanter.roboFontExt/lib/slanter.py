@@ -3,21 +3,21 @@ from defconAppKit.windows.baseWindow import BaseWindowController
 
 from mojo.glyphPreview import GlyphPreview
 from mojo.events import addObserver, removeObserver
-from mojo.roboFont import CurrentGlyph, CurrentFont, RGlyph, OpenWindow
+from mojo.roboFont import CurrentGlyph, CurrentFont
 from mojo.UI import AllSpaceCenters, CurrentGlyphWindow
 import mojo.drawingTools as drawingTools
-from mojo.tools import IntersectGlyphWithLine
 
 from lib.UI.stepper import SliderEditIntStepper
 from lib.fontObjects.doodleComponent import DecomposePointPen
 
-
 from fontTools.misc.transform import Transform
 from math import radians
+
 
 def camelCase(txt):
     txt = ''.join(c for c in txt.title() if c.isalpha())
     return txt[0].lower() + txt[1:]
+
 
 class SliderEditFloatStepper(SliderEditIntStepper):
 
@@ -40,14 +40,15 @@ class SliderEditFloatStepper(SliderEditIntStepper):
             value /= self.multiplier
         return value
 
+
 class SlanterController(BaseWindowController):
 
     title = "Slanter"
 
     attributes = [
-            ("Skew", dict(value=7, minValue=-30, maxValue=30, useMultiplier=False)),
-            ("Rotation", dict(value=0, minValue=-30, maxValue=30, useMultiplier=False)),
-        ]
+        ("Skew", dict(value=7, minValue=-30, maxValue=30, useMultiplier=False)),
+        ("Rotation", dict(value=0, minValue=-30, maxValue=30, useMultiplier=False)),
+    ]
 
     def getGlyph(self, glyph, skew, rotation, addComponents=False):
         skew = radians(skew)
@@ -91,7 +92,7 @@ class SlanterController(BaseWindowController):
         t = t.skew(skew)
         t = t.translate(cx, cy).rotate(rotation).translate(-cx, -cy)
 
-        dest.transform(t)
+        dest.transform(t[:])
         dest.extremePoints(round=0)
         for contour in dest:
             for point in contour.points:
@@ -102,9 +103,6 @@ class SlanterController(BaseWindowController):
                     point.selected = False
         dest.removeSelection()
         dest.round()
-
-
-
         return dest
 
     def getSelectedPoints(self, glyph):
@@ -124,7 +122,7 @@ class SlanterController(BaseWindowController):
 
         self.w = vanilla.Window((500, 600), self.title, minSize=(500, 500))
 
-        y = -(10 + 30 + len(self.attributes)*30)
+        y = -(10 + 30 + len(self.attributes) * 30)
         self.w.preview = GlyphPreview((0, 0, -0, y))
 
         middleLeft = 120
@@ -145,13 +143,12 @@ class SlanterController(BaseWindowController):
             else:
                 del kwargs["ui"]
                 obj = getattr(vanilla, uiElement)
-            obj = obj((middleRight, y-2, -7, 22), callback=self.parametersChanged, **kwargs)
+            obj = obj((middleRight, y - 2, -7, 22), callback=self.parametersChanged, **kwargs)
             setattr(self.w, camelCase(attr), obj)
             y += 30
 
-
-        self.w.apply = vanilla.Button((-150+right, y, -10, 22), "Apply Glyph", callback=self.applyCallback)
-        self.w.newFont = vanilla.Button((-150+right-10-150, y, -150+right-10, 22), "New Font", callback=self.generateFontCallback)
+        self.w.apply = vanilla.Button((-150 + right, y, -10, 22), "Apply Glyph", callback=self.applyCallback)
+        self.w.newFont = vanilla.Button((-150 + right - 10 - 150, y, -150 + right - 10, 22), "New Font", callback=self.generateFontCallback)
 
         self.w.showInSpaceCenter = vanilla.CheckBox((10, y, 160, 22), "Show In Space Center", callback=self.showInSpaceCenterCallback)
 
@@ -160,7 +157,6 @@ class SlanterController(BaseWindowController):
         self.w.bind("close", self.windowClose)
         self.parametersChanged()
         self.w.open()
-
 
     def getAttributes(self):
         values = []
@@ -225,11 +221,10 @@ class SlanterController(BaseWindowController):
             h = maxy - y
             drawingTools.fill(1)
             offset = 10
-            drawingTools.rect(x-offset, y-offset, w+offset*2, h+offset*2)
+            drawingTools.rect(x - offset, y - offset, w + offset * 2, h + offset * 2)
 
         drawingTools.fill(0)
         drawingTools.drawGlyph(outGlyph)
-
 
     def applyCallback(self, sender):
         self._holdGlyphUpdates = True
@@ -238,6 +233,7 @@ class SlanterController(BaseWindowController):
         attrValues = self.getAttributes()
 
         selection = []
+
         if CurrentGlyphWindow():
             selection = [CurrentGlyph().name]
         else:
