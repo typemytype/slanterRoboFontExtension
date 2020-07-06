@@ -100,6 +100,8 @@ class SlanterController(BaseWindowController):
             for component in dest.components:
                 # get component center
                 _box = glyph.font[component.baseGlyph].bounds
+                if not _box:
+                    continue
                 _cx = _box[0] + (_box[2] - _box[0]) * .5
                 _cy = _box[1] + (_box[3] - _box[1]) * .5
                 # calculate origin in relation to base glyph
