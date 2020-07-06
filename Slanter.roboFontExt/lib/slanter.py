@@ -4,13 +4,12 @@ from defconAppKit.windows.baseWindow import BaseWindowController
 from mojo.glyphPreview import GlyphPreview
 from mojo.events import addObserver, removeObserver
 from mojo.roboFont import CurrentGlyph, CurrentFont, RGlyph, OpenWindow, version, RPoint
-from mojo.UI import AllSpaceCenters, CurrentGlyphWindow
+from mojo.UI import AllSpaceCenters, CurrentGlyphWindow, getDefault
 import mojo.drawingTools as drawingTools
 
 if version >= "3.0":
     from mojo.UI import SliderEditStepper as SliderEditIntStepper
     from mojo.pens import DecomposePointPen
-
 else:
     from lib.UI.stepper import SliderEditIntStepper
     from lib.fontObjects.doodleComponent import DecomposePointPen
@@ -122,7 +121,7 @@ class SlanterController(BaseWindowController):
                     # apply transformation matrix to component offset
                     P = RPoint()
                     P.position = component.offset
-                    P.transformBy(tt)
+                    P.transformBy(tuple(tt))
                     # set component offset position
                     component.offset = P.position
 
@@ -249,19 +248,25 @@ class SlanterController(BaseWindowController):
 
     def spaceCenterDraw(self, notification):
         glyph = notification["glyph"]
+        spaceCenter = notification["spaceCenter"]
+        scale = notification["scale"]
+
         attrValues = self.getAttributes()
         outGlyph = self.getGlyph(glyph, *attrValues)
 
-        box = glyph.bounds if version >= "3.0" else glyph.box
-        if box:
-            x, y, maxx, maxy = box
-            w = maxx - x
-            h = maxy - y
-            drawingTools.fill(1)
-            offset = 10
-            drawingTools.rect(x - offset, y - offset, w + offset * 2, h + offset * 2)
+        inverse = spaceCenter.glyphLineView.getDisplayStates()['Inverse']
+        foreground = tuple(getDefault('spaceCenterGlyphColor')) if not inverse else tuple(getDefault('spaceCenterBackgroundColor'))
+        background = tuple(getDefault('spaceCenterBackgroundColor')) if not inverse else tuple(getDefault('spaceCenterGlyphColor')) 
 
-        drawingTools.fill(0)
+        # cover current glyph
+        drawingTools.fill(*background)
+        drawingTools.stroke(*background)
+        drawingTools.strokeWidth(2*scale)
+        drawingTools.drawGlyph(glyph)
+        drawingTools.stroke(None)
+
+        # draw glyph preview
+        drawingTools.fill(*foreground)
         drawingTools.drawGlyph(outGlyph)
 
     def applyCallback(self, sender):
