@@ -3,15 +3,20 @@ from defconAppKit.windows.baseWindow import BaseWindowController
 
 from mojo.glyphPreview import GlyphPreview
 from mojo.events import addObserver, removeObserver
-from mojo.roboFont import CurrentGlyph, CurrentFont, RGlyph, OpenWindow, version
+from mojo.roboFont import CurrentGlyph, CurrentFont, RGlyph, OpenWindow, version, RPoint
 from mojo.UI import AllSpaceCenters, CurrentGlyphWindow
 import mojo.drawingTools as drawingTools
 
-from lib.UI.stepper import SliderEditIntStepper
-from lib.fontObjects.doodleComponent import DecomposePointPen
+if version >= "3.0":
+    from mojo.UI import SliderEditStepper as SliderEditIntStepper
+    from mojo.pens import DecomposePointPen
+
+else:
+    from lib.UI.stepper import SliderEditIntStepper
+    from lib.fontObjects.doodleComponent import DecomposePointPen
 
 from fontTools.misc.transform import Transform
-from math import radians
+from math import radians, sin, cos
 
 
 def camelCase(txt):
@@ -50,7 +55,7 @@ class SlanterController(BaseWindowController):
         ("Rotation", dict(value=0, minValue=-30, maxValue=30, useMultiplier=False)),
     ]
 
-    def getGlyph(self, glyph, skew, rotation, addComponents=False):
+    def getGlyph(self, glyph, skew, rotation, addComponents=False, skipComponents=False):
         skew = radians(skew)
         rotation = radians(-rotation)
 
@@ -58,7 +63,8 @@ class SlanterController(BaseWindowController):
 
         if not addComponents:
             for component in dest.components:
-                pointPen = DecomposePointPen(glyph.getParent(), dest.getPointPen(), component.transformation)
+                glyphSet = glyph.font if version >= "3.0" else glyph.getParent()
+                pointPen = DecomposePointPen(glyphSet, dest.getPointPen(), component.transformation)
                 component.drawPoints(pointPen)
                 dest.removeComponent(component)
 
@@ -83,7 +89,7 @@ class SlanterController(BaseWindowController):
                     bPoint.anchorLabels = ["extremePoint"]
 
         cx, cy = 0, 0
-        box = glyph.box
+        box = glyph.bounds if version >= "3.0" else glyph.box
         if box:
             cx = box[0] + (box[2] - box[0]) * .5
             cy = box[1] + (box[3] - box[1]) * .5
@@ -94,10 +100,36 @@ class SlanterController(BaseWindowController):
 
         # RF3
         if version >= "3.0":
-            dest.transformBy(tuple(t))
+            if not skipComponents:
+                dest.transformBy(tuple(t))
+            else:
+                for contour in dest.contours:
+                    contour.transformBy(tuple(t))
+
+                # this seems to work !!!
+                for component in dest.components:
+                    # get component center
+                    _box = glyph.font[component.baseGlyph].bounds
+                    _cx = _box[0] + (_box[2] - _box[0]) * .5
+                    _cy = _box[1] + (_box[3] - _box[1]) * .5
+                    # calculate origin in relation to base glyph
+                    dx = cx - _cx
+                    dy = cy - _cy
+                    # create transformation matrix
+                    tt = Transform()
+                    tt = tt.skew(skew)
+                    tt = tt.translate(dx, dy).rotate(rotation).translate(-dx, -dy)
+                    # apply transformation matrix to component offset
+                    P = RPoint()
+                    P.position = component.offset
+                    P.transformBy(tt)
+                    # set component offset position
+                    component.offset = P.position
+
         # RF1
         else:
             dest.transform(t)
+            # do the same as above for RF1
 
         dest.extremePoints(round=0)
         for contour in dest:
@@ -220,7 +252,7 @@ class SlanterController(BaseWindowController):
         attrValues = self.getAttributes()
         outGlyph = self.getGlyph(glyph, *attrValues)
 
-        box = glyph.box
+        box = glyph.bounds if version >= "3.0" else glyph.box
         if box:
             x, y, maxx, maxy = box
             w = maxx - x
@@ -243,7 +275,7 @@ class SlanterController(BaseWindowController):
         if CurrentGlyphWindow():
             selection = [CurrentGlyph().name]
         else:
-            selection = font.selection
+            selection = font.selectedGlyphNames if version >= "3.0" else font.selection
 
         for name in selection:
             glyph = font[name]
@@ -257,9 +289,13 @@ class SlanterController(BaseWindowController):
         self._holdGlyphUpdates = False
 
     def generateFontCallback(self, sender):
-        progress = self.startProgress("Generating Shifter's...")
+        progress = self.startProgress("Generating Shifters...")
         font = CurrentFont()
-        outFont = RFont(showUI=False)
+        if version >= "3.0":
+            outFont = RFont(showInterface=False)
+        else:
+            outFont = RFont(showUI=False)
+            
         outFont.info.update(font.info.asDict())
         outFont.features.text = font.features.text
 
@@ -269,11 +305,15 @@ class SlanterController(BaseWindowController):
             outFont.newGlyph(glyph.name)
             outGlyph = outFont[glyph.name]
             outGlyph.width = glyph.width
-            resultGlyph = self.getGlyph(glyph, *attrValues, addComponents=True)
+            resultGlyph = self.getGlyph(glyph, *attrValues, addComponents=True, skipComponents=True)
             outGlyph.appendGlyph(resultGlyph)
 
         progress.close()
-        outFont.showUI()
+
+        if version >= "3.0":
+            outFont.openInterface()
+        else:
+            outFont.showUI()
 
     def windowClose(self, sender):
         self.unsubscribeGlyph()
