@@ -56,7 +56,7 @@ class SlanterController(BaseWindowController):
 
         if not addComponents:
             for component in dest.components:
-                pointPen = DecomposePointPen(glyph.font, dest.getPointPen(), component.transformation)
+                pointPen = DecomposePointPen(glyph.layer, dest.getPointPen(), component.transformation)
                 component.drawPoints(pointPen)
                 dest.removeComponent(component)
 
@@ -99,7 +99,7 @@ class SlanterController(BaseWindowController):
             # this seems to work !!!
             for component in dest.components:
                 # get component center
-                _box = glyph.font[component.baseGlyph].bounds
+                _box = glyph.layer[component.baseGlyph].bounds
                 if not _box:
                     continue
                 _cx = _box[0] + (_box[2] - _box[0]) * .5
