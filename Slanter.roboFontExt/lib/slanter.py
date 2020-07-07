@@ -3,12 +3,10 @@ from defconAppKit.windows.baseWindow import BaseWindowController
 
 from mojo.glyphPreview import GlyphPreview
 from mojo.events import addObserver, removeObserver
-from mojo.roboFont import CurrentGlyph, CurrentFont, RGlyph, OpenWindow, version
-from mojo.UI import AllSpaceCenters, CurrentGlyphWindow
+from mojo.roboFont import CurrentGlyph, CurrentFont, RGlyph, RPoint, OpenWindow
+from mojo.UI import AllSpaceCenters, CurrentGlyphWindow, SliderEditStepper, getDefault
+from mojo.pens import DecomposePointPen
 import mojo.drawingTools as drawingTools
-
-from lib.UI.stepper import SliderEditIntStepper
-from lib.fontObjects.doodleComponent import DecomposePointPen
 
 from fontTools.misc.transform import Transform
 from math import radians
@@ -19,7 +17,7 @@ def camelCase(txt):
     return txt[0].lower() + txt[1:]
 
 
-class SliderEditFloatStepper(SliderEditIntStepper):
+class SliderEditFloatStepper(SliderEditStepper):
 
     multiplier = 100.0
 
@@ -50,7 +48,7 @@ class SlanterController(BaseWindowController):
         ("Rotation", dict(value=0, minValue=-30, maxValue=30, useMultiplier=False)),
     ]
 
-    def getGlyph(self, glyph, skew, rotation, addComponents=False):
+    def getGlyph(self, glyph, skew, rotation, addComponents=False, skipComponents=False):
         skew = radians(skew)
         rotation = radians(-rotation)
 
@@ -58,7 +56,7 @@ class SlanterController(BaseWindowController):
 
         if not addComponents:
             for component in dest.components:
-                pointPen = DecomposePointPen(glyph.getParent(), dest.getPointPen(), component.transformation)
+                pointPen = DecomposePointPen(glyph.layer, dest.getPointPen(), component.transformation)
                 component.drawPoints(pointPen)
                 dest.removeComponent(component)
 
@@ -83,7 +81,7 @@ class SlanterController(BaseWindowController):
                     bPoint.anchorLabels = ["extremePoint"]
 
         cx, cy = 0, 0
-        box = glyph.box
+        box = glyph.bounds
         if box:
             cx = box[0] + (box[2] - box[0]) * .5
             cy = box[1] + (box[3] - box[1]) * .5
@@ -92,12 +90,33 @@ class SlanterController(BaseWindowController):
         t = t.skew(skew)
         t = t.translate(cx, cy).rotate(rotation).translate(-cx, -cy)
 
-        # RF3
-        if version >= "3.0":
+        if not skipComponents:
             dest.transformBy(tuple(t))
-        # RF1
         else:
-            dest.transform(t)
+            for contour in dest.contours:
+                contour.transformBy(tuple(t))
+
+            # this seems to work !!!
+            for component in dest.components:
+                # get component center
+                _box = glyph.layer[component.baseGlyph].bounds
+                if not _box:
+                    continue
+                _cx = _box[0] + (_box[2] - _box[0]) * .5
+                _cy = _box[1] + (_box[3] - _box[1]) * .5
+                # calculate origin in relation to base glyph
+                dx = cx - _cx
+                dy = cy - _cy
+                # create transformation matrix
+                tt = Transform()
+                tt = tt.skew(skew)
+                tt = tt.translate(dx, dy).rotate(rotation).translate(-dx, -dy)
+                # apply transformation matrix to component offset
+                P = RPoint()
+                P.position = component.offset
+                P.transformBy(tuple(tt))
+                # set component offset position
+                component.offset = P.position
 
         dest.extremePoints(round=0)
         for contour in dest:
@@ -217,19 +236,25 @@ class SlanterController(BaseWindowController):
 
     def spaceCenterDraw(self, notification):
         glyph = notification["glyph"]
+        spaceCenter = notification["spaceCenter"]
+        scale = notification["scale"]
+
         attrValues = self.getAttributes()
         outGlyph = self.getGlyph(glyph, *attrValues)
 
-        box = glyph.box
-        if box:
-            x, y, maxx, maxy = box
-            w = maxx - x
-            h = maxy - y
-            drawingTools.fill(1)
-            offset = 10
-            drawingTools.rect(x - offset, y - offset, w + offset * 2, h + offset * 2)
+        inverse = spaceCenter.glyphLineView.getDisplayStates()['Inverse']
+        foreground = tuple(getDefault('spaceCenterGlyphColor')) if not inverse else tuple(getDefault('spaceCenterBackgroundColor'))
+        background = tuple(getDefault('spaceCenterBackgroundColor')) if not inverse else tuple(getDefault('spaceCenterGlyphColor')) 
 
-        drawingTools.fill(0)
+        # cover current glyph
+        drawingTools.fill(*background)
+        drawingTools.stroke(*background)
+        drawingTools.strokeWidth(2*scale)
+        drawingTools.drawGlyph(glyph)
+        drawingTools.stroke(None)
+
+        # draw glyph preview
+        drawingTools.fill(*foreground)
         drawingTools.drawGlyph(outGlyph)
 
     def applyCallback(self, sender):
@@ -243,7 +268,7 @@ class SlanterController(BaseWindowController):
         if CurrentGlyphWindow():
             selection = [CurrentGlyph().name]
         else:
-            selection = font.selection
+            selection = font.selectedGlyphNames
 
         for name in selection:
             glyph = font[name]
@@ -257,9 +282,9 @@ class SlanterController(BaseWindowController):
         self._holdGlyphUpdates = False
 
     def generateFontCallback(self, sender):
-        progress = self.startProgress("Generating Shifter's...")
+        progress = self.startProgress("Generating Shifters...")
         font = CurrentFont()
-        outFont = RFont(showUI=False)
+        outFont = RFont(showInterface=False)
         outFont.info.update(font.info.asDict())
         outFont.features.text = font.features.text
 
@@ -269,11 +294,12 @@ class SlanterController(BaseWindowController):
             outFont.newGlyph(glyph.name)
             outGlyph = outFont[glyph.name]
             outGlyph.width = glyph.width
-            resultGlyph = self.getGlyph(glyph, *attrValues, addComponents=True)
+            resultGlyph = self.getGlyph(glyph, *attrValues, addComponents=True, skipComponents=True)
             outGlyph.appendGlyph(resultGlyph)
 
         progress.close()
-        outFont.showUI()
+
+        outFont.openInterface()
 
     def windowClose(self, sender):
         self.unsubscribeGlyph()
