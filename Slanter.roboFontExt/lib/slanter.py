@@ -297,7 +297,9 @@ class SlanterController(BaseWindowController):
             outGlyph.unicodes = glyph.unicodes
             resultGlyph = self.getGlyph(glyph, *attrValues, addComponents=True, skipComponents=True)
             outGlyph.appendGlyph(resultGlyph)
-
+        
+        outFont.glyphOrder = font.glyphOrder
+        
         progress.close()
 
         outFont.openInterface()
