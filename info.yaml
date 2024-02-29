@@ -1,0 +1,13 @@
+name: Slanter
+developer: TypeMyType
+developerURL: http://typemytype.com
+launchAtStartUp: false
+mainScript: ''
+version: 1.3.2
+addToMenu:
+- path: slanter.py
+  preferredName: Slanter
+  shortKey: ''
+html: false
+requiresVersionMajor: '3'
+requiresVersionMinor: '0'
